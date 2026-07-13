@@ -1,0 +1,5 @@
+openai==1.55.3
+asyncpg==0.29.0
+redis==5.2.0
+python-dotenv==1.0.1
+pypdf==5.1.0

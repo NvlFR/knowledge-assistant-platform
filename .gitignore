@@ -1,0 +1,27 @@
+# Env
+.env
+*.env.local
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.venv-*/
+venv/
+.pytest_cache/
+
+# Local port-conflict overrides (dev machine specific, not for submission)
+docker-compose.override.yml
+
+# Test brief / assignment materials (not part of the submission deliverable)
+*.pdf
+
+# Misc
+.DS_Store
+*.log
+.claude/scheduled_tasks.lock
