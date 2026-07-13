@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BookOpen, Database, Globe, Zap } from "lucide-react";
+import { authFetch } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4447";
@@ -22,7 +23,7 @@ export function StatusBar() {
 
     async function load() {
       try {
-        const res = await fetch(`${BACKEND_URL}/status`, { cache: "no-store" });
+        const res = await authFetch(`${BACKEND_URL}/status`, { cache: "no-store" });
         if (!res.ok) throw new Error("bad status");
         const data = (await res.json()) as Status;
         if (!cancelled) {

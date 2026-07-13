@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { PanelLeft } from "lucide-react";
+import { LogOut, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getToken, logout } from "@/lib/auth";
 import { BrandLogo } from "@/components/BrandLogo";
 import Chat from "@/components/Chat";
 import { Sidebar } from "@/components/Sidebar";
@@ -22,6 +23,10 @@ export default function ChatApp() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [hydrated, setHydrated] = useState(false);
+  // A token only exists when the backend enforces a password; hide the sign-out
+  // control in passwordless (local dev) mode.
+  const [authRequired, setAuthRequired] = useState(false);
+  useEffect(() => setAuthRequired(Boolean(getToken())), []);
 
   // Load persisted conversations on mount (client only).
   useEffect(() => {
@@ -152,7 +157,18 @@ export default function ChatApp() {
               <BrandLogo size="sm" />
             </span>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            {authRequired && (
+              <button
+                aria-label="Sign out"
+                onClick={logout}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <LogOut className="h-[18px] w-[18px]" />
+              </button>
+            )}
+          </div>
         </header>
 
         <main className="flex flex-1 flex-col">

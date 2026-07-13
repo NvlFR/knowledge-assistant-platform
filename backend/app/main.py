@@ -4,11 +4,12 @@ import os
 import re
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from app.auth import AuthDep, check_password, create_token
 from app.chat import redis_client, stream_chat_response
 from app.config import settings
 from app.mcp_client import call_tool, list_openai_tools
@@ -48,9 +49,20 @@ class ChatRequest(BaseModel):
     enabled_tools: list[str] | None = None
 
 
+class LoginRequest(BaseModel):
+    password: str
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/auth/login")
+async def login(request: LoginRequest):
+    if not check_password(request.password):
+        raise HTTPException(status_code=401, detail="Incorrect password.")
+    return {"token": create_token()}
 
 
 async def _check_redis() -> bool:
@@ -82,7 +94,7 @@ async def _check_mcp_and_docs() -> tuple[bool, int | None, bool]:
         return True, None, False
 
 
-@app.get("/status")
+@app.get("/status", dependencies=[AuthDep])
 async def status():
     redis_ok, (mcp_ready, doc_count, db_ok) = await asyncio.gather(
         _check_redis(), _check_mcp_and_docs()
@@ -96,7 +108,7 @@ async def status():
     }
 
 
-@app.get("/documents")
+@app.get("/documents", dependencies=[AuthDep])
 async def list_documents():
     """Lists ingested knowledge-base documents (distinct source_file + chunk
     count) by asking the MCP database tool — no extra DB credentials here."""
@@ -116,7 +128,7 @@ async def list_documents():
         return {"documents": []}
 
 
-@app.post("/documents")
+@app.post("/documents", dependencies=[AuthDep])
 async def upload_document(file: UploadFile):
     filename = _safe_filename(file.filename or "")
     ext = Path(filename).suffix.lower()
@@ -141,7 +153,7 @@ async def upload_document(file: UploadFile):
     return {"filename": filename, "status": "queued"}
 
 
-@app.post("/chat")
+@app.post("/chat", dependencies=[AuthDep])
 async def chat(request: ChatRequest):
     history = [{"role": m.role, "content": m.content} for m in request.messages]
     return EventSourceResponse(stream_chat_response(history, request.enabled_tools))

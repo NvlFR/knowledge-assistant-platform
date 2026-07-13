@@ -1,3 +1,5 @@
+import { authFetch } from "@/lib/auth";
+
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4447";
 
 export type KbDocument = {
@@ -7,7 +9,7 @@ export type KbDocument = {
 };
 
 export async function fetchDocuments(): Promise<KbDocument[]> {
-  const res = await fetch(`${BACKEND_URL}/documents`, { cache: "no-store" });
+  const res = await authFetch(`${BACKEND_URL}/documents`, { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to load documents");
   const data = await res.json();
   return (data.documents ?? []) as KbDocument[];
@@ -18,7 +20,7 @@ export async function uploadDocument(
 ): Promise<{ filename: string; status: string }> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${BACKEND_URL}/documents`, {
+  const res = await authFetch(`${BACKEND_URL}/documents`, {
     method: "POST",
     body: form,
   });

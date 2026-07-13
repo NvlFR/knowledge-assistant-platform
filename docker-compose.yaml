@@ -54,8 +54,10 @@ services:
       OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
       MCP_SERVER_URL: http://mcp-server:8001/mcp
       REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: http://localhost:4448
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4448}
       UPLOAD_DIR: /uploads
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      AUTH_SECRET: ${AUTH_SECRET:-}
     volumes:
       - kb_uploads:/uploads
     ports:

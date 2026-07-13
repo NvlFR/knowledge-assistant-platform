@@ -17,6 +17,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authHeaders, logout } from "@/lib/auth";
 import { BrandLogo } from "@/components/BrandLogo";
 import { StatusBar } from "@/components/StatusBar";
 import type { Dispatch as ReactDispatch } from "react";
@@ -147,10 +148,14 @@ export default function Chat({ messages, setMessages, sidebarOpen = true }: Chat
     try {
       const response = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ messages: nextMessages, enabled_tools: enabledTools }),
       });
 
+      if (response.status === 401) {
+        logout();
+        throw new Error("Session expired — please sign in again.");
+      }
       if (!response.body) throw new Error("No response body from backend");
 
       const reader = response.body.getReader();
