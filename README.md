@@ -8,6 +8,14 @@ internal scope. Built for the IAII Software Engineer Test.
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full Architecture / Technical
 Design Document (Question 1).
 
+## Demo Video
+
+A motion-graphics walkthrough of the architecture and request flow (by Noval Faturrahman):
+
+[![Watch the demo](docs/media/demo-thumbnail.png)](docs/media/demo.mp4)
+
+▶️ [`docs/media/demo.mp4`](docs/media/demo.mp4) — click the thumbnail to play.
+
 ## Short Description
 
 The assistant is a RAG + tool-calling agent: a FastAPI backend sends the user's message
