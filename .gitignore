@@ -25,3 +25,7 @@ docker-compose.override.yml
 .DS_Store
 *.log
 .claude/scheduled_tasks.lock
+
+# Cloudflare origin cert (secret, never commit)
+infrastructure/caddy/origin.pem
+infrastructure/caddy/origin.key

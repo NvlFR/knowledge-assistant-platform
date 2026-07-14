@@ -128,15 +128,19 @@ directly in the backend:
   backend orchestration logic. This mirrors how the current generation of AI coding/agent
   tools standardize tool access, and directly demonstrates understanding of it as requested
   by the test brief.
-- **Protocol:** MCP over stdio for local/same-host deployment (simplest, lowest latency since
-  backend and MCP server run as sibling containers); can be swapped to MCP-over-SSE if the
-  tool layer needs to be deployed as an independently scaled service later.
+- **Protocol:** MCP over the **Streamable HTTP** transport. The MCP server runs as its own
+  container (`mcp.run(transport="streamable-http")`, listening on `:8001/mcp`) and the backend
+  connects as an MCP client over HTTP (`streamablehttp_client` → `http://mcp-server:8001/mcp`).
+  HTTP is used (rather than stdio) precisely because the tool layer is a **separate, network-
+  reachable container** that can be scaled and redeployed independently of the backend — stdio
+  would require the server to be a child process of the backend, which it is not.
 
 ### 4.5 Redis - Cache + Async Job Queue (PLUS POINT)
 
-- **Cache:** stores (a) embeddings for frequently-asked queries and (b) final LLM answers for
-  identical/near-identical questions within a TTL window, reducing repeated LLM API cost and
-  latency.
+- **Cache:** stores final LLM answers for identical questions within a TTL window, keyed by a
+  hash of the conversation messages + enabled tools (`chat_cache:<sha256>` in
+  `backend/app/chat.py`), reducing repeated LLM API cost and latency on repeated questions.
+  (Embedding-level caching is a natural next step but is not implemented yet.)
 - **Queue:** backs the async document ingestion pipeline when a new/updated markdown file is
   added to the knowledge base, a job is pushed to Redis rather than processed synchronously in
   the request path.
@@ -146,9 +150,14 @@ directly in the backend:
 
 ### 4.6 Async Worker (PLUS POINT)
 
-- A separate worker process (Python) that consumes ingestion jobs from the Redis queue:
-  reads markdown files → splits into chunks → generates embeddings via OpenAI's embedding
-  model → writes vectors into `pgvector`.
+- A separate worker process (Python) that consumes ingestion jobs from the Redis
+  `ingestion_queue` list (`blpop`): reads markdown files → splits into chunks → generates
+  embeddings via OpenAI's embedding model → writes vectors into `pgvector`. On startup it also
+  bulk-ingests the seed documents mounted at `KB_DIR`.
+- Documents reach the queue two ways: the seed knowledge base in `infrastructure/knowledge_base`,
+  and files **uploaded at runtime** through the frontend/backend (stored in the shared
+  `kb_uploads` volume, whose path is pushed onto the queue). Queue entries are validated against
+  path traversal before processing.
 - **Why separate from the API:** ingesting/re-embedding documents is I/O and potentially
   slow (batch embedding calls); running it out-of-band keeps the chat API responsive and
   allows independent horizontal scaling of ingestion throughput.
@@ -179,7 +188,7 @@ question (e.g. knowledge base for policy + database for current numbers).
 | Link | Protocol | Reason |
 |---|---|---|
 | Frontend ↔ Backend | REST (HTTPS) for request/history, SSE for streaming responses | SSE is simpler than WebSocket for one-directional token streaming and works over standard HTTP infra |
-| Backend ↔ MCP Server | MCP (JSON-RPC over stdio) | Standardized tool-calling protocol; stdio is lowest-latency for co-located containers |
+| Backend ↔ MCP Server | MCP (JSON-RPC over Streamable HTTP) | Standardized tool-calling protocol; HTTP lets the MCP server run as an independently deployable/scalable container instead of a child process of the backend |
 | Backend/Worker ↔ PostgreSQL | SQL over TCP (asyncpg/psycopg) | Standard, connection-pooled |
 | Backend ↔ Redis | RESP protocol | Standard Redis client |
 | Backend ↔ OpenAI / Tavily | HTTPS REST | External hosted APIs |
@@ -188,6 +197,12 @@ question (e.g. knowledge base for policy + database for current numbers).
 
 ## 7. Security Considerations
 
+- **Authentication:** the API is gated by a single shared password (`APP_PASSWORD`) —
+  sufficient to keep a VPS-deployed internal tool private without standing up a full user
+  store. On login the backend mints a **stateless HMAC-signed Bearer token** (`AUTH_SECRET`,
+  no DB/session store, configurable TTL) that the frontend sends on every subsequent request
+  (`backend/app/auth.py`). Auth is automatically disabled when `APP_PASSWORD` is unset, for
+  frictionless local development.
 - The `query_database` tool only ever executes `SELECT` statements through a Postgres role
   with `SELECT`-only grants no `INSERT`/`UPDATE`/`DELETE`/DDL privileges mitigating prompt
   injection attempts that try to get the LLM to issue destructive SQL.

@@ -92,6 +92,16 @@ pip install -r requirements.txt
 pytest
 ```
 
+### 6. Deploy to a VPS (production, HTTPS)
+Single-subdomain deploy behind Caddy (auto-HTTPS), e.g. `https://ask.ftrhq.my.id`:
+```bash
+cp .env.prod.example .env   # fill in domain + secrets
+docker compose -f docker-compose.yaml -f docker-compose.prod.yml up -d --build
+```
+Frontend is served at `/`, backend proxied under `/api`; only ports 80/443 are
+exposed. Full walkthrough (DNS, firewall, TLS, updates) in
+[`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 ## How AI Coding Agents Were Used
 
 This project was built with heavy use of Claude Code (Anthropic's CLI coding agent) as a
@@ -119,6 +129,15 @@ behind each.
 
 ## CI/CD
 
-`.github/workflows/ci.yml` runs on every push/PR: backend unit tests (`pytest`),
-frontend build check, Docker image builds for all services, and on tagged releases,
-pushes versioned images to GitHub Container Registry (GHCR).
+`.github/workflows/ci.yml` is a single pipeline covering all five stages:
+
+| Stage | Job | What it does |
+|---|---|---|
+| **1. Unit Testing** | `backend-unit-tests` | Runs `pytest -v` against the backend unit suite |
+| **2. Integration Testing** | `integration-tests` | Spins up a PostgreSQL service, applies the schema, then runs `pytest -v -m integration` |
+| **3. Build** | `frontend-build` + `build-images` | Next.js production build check and Docker image builds for every service |
+| **4. Version Release** | `release-and-push` + `github-release` | On a `v*.*.*` tag: cuts a GitHub Release with auto-generated notes |
+| **5. Push to GHCR** | `release-and-push` | Logs in and pushes versioned Docker images for all services to `ghcr.io` |
+
+Stages 1–3 run on every push/PR; stages 4–5 run only on tagged releases
+(`git tag v1.0.0 && git push --tags`).

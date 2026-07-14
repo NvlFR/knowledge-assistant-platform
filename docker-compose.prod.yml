@@ -1,0 +1,54 @@
+# Production overlay for VPS deployment behind a single subdomain with auto-HTTPS.
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.prod.yml up -d --build
+#
+# Only Caddy is exposed to the internet (80/443); every other service is closed to
+# the host and reachable solely on the internal Docker network.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: ka-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-ask.ftrhq.my.id}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infrastructure/caddy/origin.pem:/etc/caddy/certs/origin.pem:ro
+      - ./infrastructure/caddy/origin.key:/etc/caddy/certs/origin.key:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_BACKEND_URL: /api
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: /api
+    ports: !reset []   # no longer published to host; served via Caddy
+
+  backend:
+    environment:
+      CORS_ORIGINS: https://${DOMAIN:-ask.ftrhq.my.id}
+    ports: !reset []
+
+  mcp-server:
+    ports: !reset []
+
+  postgres:
+    ports: !reset []   # close 4444 — DB must not be reachable from the internet
+
+  redis:
+    ports: !reset []   # close 4445
+
+volumes:
+  caddy_data:
+  caddy_config:

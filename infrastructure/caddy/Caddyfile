@@ -1,0 +1,32 @@
+# Reverse proxy for the Knowledge Assistant Platform.
+# One subdomain: frontend at "/", backend proxied under "/api" (prefix stripped).
+#
+# TLS: uses a Cloudflare Origin Certificate (domain stays proxied / orange-cloud).
+# Cloudflare terminates the public TLS and connects to this origin over HTTPS on
+# 443, validating this cert ("Full (strict)" mode). No Let's Encrypt/ACME here.
+
+{
+	# We supply our own certificate, so disable Caddy's automatic HTTPS/ACME.
+	auto_https disable_redirects
+}
+
+{$DOMAIN:ask.ftrhq.my.id} {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+
+	encode gzip
+
+	# Backend API — strip the /api prefix so FastAPI sees /chat, /auth/login, etc.
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy backend:8000 {
+			# flush_interval -1 disables response buffering so SSE token
+			# streaming reaches the browser immediately.
+			flush_interval -1
+		}
+	}
+
+	# Everything else → Next.js frontend.
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

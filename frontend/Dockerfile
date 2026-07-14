@@ -7,6 +7,11 @@ FROM node:20-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# NEXT_PUBLIC_* is inlined into the client bundle at build time. In production we
+# pass "/api" so the browser calls the same origin (proxied to the backend); left
+# empty it falls back to http://localhost:4447 for local dev.
+ARG NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 RUN npm run build
 
 FROM node:20-slim AS runner
